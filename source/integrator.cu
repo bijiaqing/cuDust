@@ -1,161 +1,144 @@
-#include <cmath>
+#include "cudust.cuh"
 
-#include "const.h"
-#include "funclib.cuh"
+// =========================================================================================================================
 
-//====================================================================================================================================================================
-//====================================================================================================================================================================
-
-__global__
-void stepnum_calc (double *dev_stepnum, par *dev_grain)
+__global__ 
+void ssa_substep_1 (swarm *dev_particle, real *dev_timestep)
 {
-    int index = threadIdx.x + blockDim.x*blockIdx.x;
-    
-    if(index >= 0 && index < PAR_NUM)
+    int idx = threadIdx.x + blockDim.x*blockIdx.x;
+
+    if(idx >= 0 && idx < NUM_PAR)
     {
-        double      l_azi, time_azi;
-        double rad, v_rad, time_rad;
-        double      l_col, time_col;
-        double d_rad, par_rad, time_min, step_num;
-        
-        rad = dev_grain[index].rad;
-        l_azi = dev_grain[index].l_azi;
-        v_rad = dev_grain[index].v_rad;
-        l_col = dev_grain[index].l_col;
-        
-        d_rad   = pow(RAD_MAX / RAD_MIN, 1.0 / (double)RES_RAD);
-        par_rad = log(rad / RAD_MIN) / log(d_rad);
-        
-        time_azi = ((AZI_MAX - AZI_MIN) / (double)RES_AZI) / (abs(l_azi / rad) + 1.0e-10);
-        time_col = ((COL_MAX - COL_MIN) / (double)RES_COL) / (abs(l_col / rad) + 1.0e-10);
-        time_rad = (d_rad - 1.0)*RAD_MIN*pow(d_rad, floor(par_rad)) / (abs(v_rad) + 1.0e-10);
-        time_min = min(time_azi, min(time_rad, time_col));
-        step_num = time_min / TIME_STEP;
-        
-        if (step_num >= 1.0) dev_stepnum[index] = 1.0;
-        else                 dev_stepnum[index] = step_num;
+        real azi_i, l_azi_i, azi_1;
+        real rad_i, v_rad_i, rad_1;
+        real col_i, l_col_i, col_1;
+
+        real dt = *dev_timestep;
+
+        azi_i   = dev_particle[idx].position.x;
+        rad_i   = dev_particle[idx].position.y;
+        col_i   = dev_particle[idx].position.z;
+        l_azi_i = dev_particle[idx].velocity.x;
+        v_rad_i = dev_particle[idx].velocity.y;
+        l_col_i = dev_particle[idx].velocity.z;
+
+        rad_1 = rad_i + 0.5*v_rad_i*dt;
+        col_1 = col_i + 0.5*l_col_i*dt / rad_i / rad_1;
+        azi_1 = azi_i + 0.5*l_azi_i*dt / rad_i / rad_1 / sin(col_i) / sin(col_1);
+
+        while (azi_1 >= AZI_MAX) azi_1 -= 2.0*M_PI;
+        while (azi_1 <  AZI_MIN) azi_1 += 2.0*M_PI;
+
+        if (rad_1 < RAD_MIN) 
+        {
+            rad_1 = RAD_MAX;
+            dev_particle[idx].velocity.x = sqrt(G*M_STAR*RAD_MAX);
+            dev_particle[idx].velocity.y = 0.0;
+            dev_particle[idx].velocity.z = 0.0;
+        }
+
+        dev_particle[idx].position.x = azi_1;
+        dev_particle[idx].position.y = rad_1;
+        dev_particle[idx].position.z = col_1;
     }
 }
 
-//====================================================================================================================================================================
-//====================================================================================================================================================================
+// =========================================================================================================================
 
 __global__
-void parmove_act1 (par *dev_grain)
+void ssa_substep_2 (swarm *dev_particle, real *dev_optdepth, real *dev_timestep)
 {
-    int index = threadIdx.x + blockDim.x*blockIdx.x;
-    
-    if(index >= 0 && index < PAR_NUM)
-    {
-        double azi, l_azi, azi_temp;
-        double rad, v_rad, rad_temp;
-        double col, l_col, col_temp;
-        
-        azi = dev_grain[index].azi;
-        rad = dev_grain[index].rad;
-        col = dev_grain[index].col;
-        l_azi = dev_grain[index].l_azi;
-        v_rad = dev_grain[index].v_rad;
-        l_col = dev_grain[index].l_col;
-        
-        rad_temp = rad + 0.5*v_rad*TIME_STEP;
-        col_temp = col + 0.5*l_col*TIME_STEP / rad / rad_temp;
-        azi_temp = azi + 0.5*l_azi*TIME_STEP / rad / rad_temp / sin(col) / sin(col_temp);
+    int idx = threadIdx.x + blockDim.x*blockIdx.x;
 
-        while (azi_temp >= AZI_MAX) azi_temp -= AZI_MAX;
-        while (azi_temp <  AZI_MIN) azi_temp += AZI_MAX;
-        
-        if (rad_temp < RAD_MIN) 
+    if(idx >= 0 && idx < NUM_PAR)
+    {
+        real l_azi_i, azi_1, l_azi_1, lg_azi_1, torq_azi_1, torq_azi_2, azi_j, l_azi_j, par_azi;
+        real v_rad_i, rad_1,          vg_rad_1,             forc_rad_2, rad_j, v_rad_j, par_rad;
+        real l_col_i, col_1, l_col_1, lg_col_1, torq_col_1, torq_col_2, col_j, l_col_j, par_col;
+        real size, optdepth, ts_1, tau_1, eta_1, beta_1;
+
+        azi_1   = dev_particle[idx].position.x;
+        rad_1   = dev_particle[idx].position.y;
+        col_1   = dev_particle[idx].position.z;
+        l_azi_i = dev_particle[idx].velocity.x;
+        v_rad_i = dev_particle[idx].velocity.y;
+        l_col_i = dev_particle[idx].velocity.z;
+        size    = dev_particle[idx].dustsize;
+
+        real dt = *dev_timestep;
+
+        real bigR_1 = rad_1*sin(col_1);
+        real bigZ_1 = rad_1*cos(col_1);
+
+        // get the velocity of gas in the hydrostatic equilibrium state
+        eta_1 = (IDX_SIGG + IDX_TEMP - 1.0)*ASP_REF*ASP_REF*pow(bigR_1 / RAD_REF, IDX_TEMP + 1.0) + IDX_TEMP*(1.0 - bigR_1 / rad_1); 
+        lg_azi_1 = sqrt(G*M_STAR*bigR_1)*sqrt(1.0 + eta_1);
+        vg_rad_1 = 0.0;
+        lg_col_1 = 0.0;
+
+        // calculate the stopping time and the dimensionless time
+        ts_1  = ST_REF*(size / SIZE_REF) / sqrt(G*M_STAR / RAD_REF / RAD_REF / RAD_REF);
+        ts_1 *= pow(bigR_1 / RAD_REF, - 0.5*IDX_TEMP - IDX_SIGG + 1.0); // correct for radial gas density and sound speed
+        ts_1 *= exp(bigZ_1*bigZ_1 / (2.0*ASP_REF*ASP_REF*bigR_1*bigR_1*pow(bigR_1 / RAD_REF, IDX_TEMP + 1.0))); // correct for vertical gas density
+        tau_1 = dt / ts_1;
+
+        // retrieve the optical depth of the particle based on its position and calculate beta
+        par_azi  = static_cast<real>(RES_AZI)*   (azi_1 - AZI_MIN) /    (AZI_MAX - AZI_MIN);
+        par_rad  = static_cast<real>(RES_RAD)*log(rad_1 / RAD_MIN) / log(RAD_MAX / RAD_MIN);
+        par_col  = static_cast<real>(RES_COL)*   (col_1 - COL_MIN) /    (COL_MAX - COL_MIN);
+        optdepth = get_optdepth(dev_optdepth, par_azi, par_rad, par_col);
+        beta_1   = 1.0 - BETA_REF*exp(-optdepth) / (size / SIZE_REF);
+
+        // calculate the forces and torques (using the updated position but outdated velocity)
+        torq_azi_1 =  0.0;
+        // forc_rad_1 = -beta_1*G*M_STAR / rad_1 / rad_1;
+        torq_col_1 =  0.0;
+
+        // calculate the centrifugal forces (using the updated position but outdated velocity)
+        // real ctfg_rad_1 = l_azi_i*l_azi_i / bigR_1 / bigR_1 / rad_1 + l_col_i*l_col_i / rad_1 / rad_1 / rad_1;
+        real ctfg_col_1 = l_azi_i*l_azi_i / bigR_1 / bigR_1 / sin(col_1) * cos(col_1);
+
+        // calculate the updated velocities
+        l_azi_1 = l_azi_i + ((torq_azi_1             )*ts_1 + lg_azi_1 - l_azi_i)*(1.0 - exp(-0.5*tau_1));
+        // v_rad_1 = v_rad_i + ((forc_rad_1 + ctfg_rad_1)*ts_1 + vg_rad_1 - v_rad_i)*(1.0 - exp(-0.5*tau_1));
+        l_col_1 = l_col_i + ((torq_col_1 + ctfg_col_1)*ts_1 + lg_col_1 - l_col_i)*(1.0 - exp(-0.5*tau_1));
+
+        // calculate the forces and torques (using the updated position and velocity)
+        torq_azi_2 =  0.0;
+        forc_rad_2 = -beta_1*G*M_STAR / rad_1 / rad_1;
+        torq_col_2 =  0.0;
+
+        // calculate the centrifugal forces (using the updated position and velocity)
+        real ctfg_rad_2 = l_azi_1*l_azi_1 / bigR_1 / bigR_1 / rad_1 + l_col_1*l_col_1 / rad_1 / rad_1 / rad_1;
+        real ctfg_col_2 = l_azi_1*l_azi_1 / bigR_1 / bigR_1 / sin(col_1) * cos(col_1);
+
+        // calculate the next-step velocity
+        l_azi_j = l_azi_i + ((torq_azi_2             )*ts_1 + lg_azi_1 - l_azi_i)*(1.0 - exp(-tau_1));
+        v_rad_j = v_rad_i + ((forc_rad_2 + ctfg_rad_2)*ts_1 + vg_rad_1 - v_rad_i)*(1.0 - exp(-tau_1));
+        l_col_j = l_col_i + ((torq_col_2 + ctfg_col_2)*ts_1 + lg_col_1 - l_col_i)*(1.0 - exp(-tau_1));
+
+        // calculate the next-step position (the sequence matters!!)
+        rad_j = rad_1 + 0.5*v_rad_j*dt;
+        col_j = col_1 + 0.5*l_col_j*dt / rad_1 / rad_j;
+        azi_j = azi_1 + 0.5*l_azi_j*dt / rad_1 / rad_j / sin(col_1) / sin(col_j);
+
+        while (azi_j >= AZI_MAX) azi_j -= 2.0*M_PI;
+        while (azi_j <  AZI_MIN) azi_j += 2.0*M_PI;
+
+        if (rad_j < RAD_MIN) 
         {
-            rad_temp = RAD_MAX;
-            dev_grain[index].v_rad = 0.0;
-            dev_grain[index].l_azi = sqrt(G*M*rad_temp);
+            rad_j   = RAD_MAX;
+            l_azi_j = sqrt(G*M_STAR*RAD_MAX);
+            v_rad_j = 0.0;
+            l_col_j = 0.0;
         }
 
-        dev_grain[index].azi = azi_temp;
-        dev_grain[index].rad = rad_temp;
-        dev_grain[index].col = col_temp;
-    }
-}
+        dev_particle[idx].position.x = azi_j;
+        dev_particle[idx].position.y = rad_j;
+        dev_particle[idx].position.z = col_j;
 
-//====================================================================================================================================================================
-//====================================================================================================================================================================
-
-__global__
-void parmove_act2 (par *dev_grain, double *dev_optdept)
-{
-    int index = threadIdx.x + blockDim.x*blockIdx.x;
-    
-    if(index >= 0 && index < PAR_NUM)
-    {
-        double azi_temp, azi_next, l_azi, l_azi_temp, l_azi_next, torq_azi, lg_azi, par_azi;
-        double rad_temp, rad_next, v_rad, v_rad_temp, v_rad_next, forc_rad, vg_rad, par_rad;
-        double col_temp, col_next, l_col, l_col_temp, l_col_next, torq_col, lg_col, par_col;
-        double cent_rad, cent_col, T_stop, tau, beta_eff, optdept;
-    
-        azi_temp = dev_grain[index].azi;
-        rad_temp = dev_grain[index].rad;
-        col_temp = dev_grain[index].col;
-        l_azi    = dev_grain[index].l_azi;
-        v_rad    = dev_grain[index].v_rad;
-        l_col    = dev_grain[index].l_col;
-    
-        par_azi = (azi_temp - AZI_MIN) / ((AZI_MAX - AZI_MIN) / (double)RES_AZI);
-        par_col = (col_temp - COL_MIN) / ((COL_MAX - COL_MIN) / (double)RES_COL);
-        par_rad = log(rad_temp / RAD_MIN) / log(pow(RAD_MAX / RAD_MIN, 1.0 / (double)RES_RAD));
-        optdept = get_optdept(par_azi, par_rad, par_col, dev_optdept);
-    
-        // equilibrium solutions of gas kinematics (independent from velocities)
-        lg_azi = sqrt(G*M*rad_temp*sin(col_temp))*sqrt(1.0 + ASPECT_RATIO*ASPECT_RATIO*(SIGMA_INDEX + TEMPE_INDEX));
-        vg_rad = 0.0;
-        lg_col = 0.0;
-    
-        // note that Omega_0 = 1 is omitted here    
-        T_stop  = St_0*(dev_grain[index].siz / 1.0e-4)*pow(rad_temp*sin(col_temp), -SIGMA_INDEX - 0.5*TEMPE_INDEX);
-        tau     = TIME_STEP / T_stop;
-
-        // using updated positions but outdated velocities
-        beta_eff = 1.0 - BETA*pow((dev_grain[index].siz / 1.0e-4), -1.0)*exp(-optdept);
-        forc_rad =-beta_eff*G*M / rad_temp / rad_temp;
-        torq_azi = 0.0;
-        torq_col = 0.0;
-    
-        cent_rad = l_azi*l_azi / rad_temp / rad_temp / rad_temp / sin(col_temp) / sin(col_temp) + l_col*l_col / rad_temp / rad_temp / rad_temp;
-        cent_col = l_azi*l_azi*cos(col_temp) / rad_temp / rad_temp / sin(col_temp) / sin(col_temp) / sin(col_temp);
-    
-        v_rad_temp = v_rad + ((forc_rad + cent_rad)*T_stop + vg_rad - v_rad)*(1.0 - exp(-0.5*tau));
-        //v_rad_temp = 0.0;
-        l_col_temp = l_col + ((torq_col + cent_col)*T_stop + lg_col - l_col)*(1.0 - exp(-0.5*tau));
-        l_azi_temp = l_azi + ((torq_azi           )*T_stop + lg_azi - l_azi)*(1.0 - exp(-0.5*tau));
-        
-        // using updated positions and velocities
-        cent_rad = l_azi_temp*l_azi_temp / rad_temp / rad_temp / rad_temp / sin(col_temp) / sin(col_temp) + l_col_temp*l_col_temp / rad_temp / rad_temp / rad_temp;
-        cent_col = l_azi_temp*l_azi_temp*cos(col_temp) / rad_temp / rad_temp / sin(col_temp) / sin(col_temp) / sin(col_temp);
-        
-        v_rad_next = v_rad + ((forc_rad + cent_rad)*T_stop + vg_rad - v_rad)*(1.0 - exp(-tau));
-        //v_rad_next = 0.0;
-        l_col_next = l_col + ((torq_col + cent_col)*T_stop + lg_col - l_col)*(1.0 - exp(-tau));
-        l_azi_next = l_azi + ((torq_azi           )*T_stop + lg_azi - l_azi)*(1.0 - exp(-tau));
-        
-        rad_next = rad_temp + 0.5*v_rad_next*TIME_STEP;
-        col_next = col_temp + 0.5*l_col_next*TIME_STEP / rad_temp / rad_next;
-        azi_next = azi_temp + 0.5*l_azi_next*TIME_STEP / rad_temp / rad_next / sin(col_temp) / sin(col_next);
-        
-        while (azi_next >= AZI_MAX) azi_next -= AZI_MAX;
-        while (azi_next <  AZI_MIN) azi_next += AZI_MAX;
-        
-        if (rad_next < RAD_MIN) 
-        {
-            rad_next   = RAD_MAX;
-            v_rad_next = 0.0;
-            l_azi_next = sqrt(G*M*rad_next);
-        }
-    
-        dev_grain[index].azi = azi_next;
-        dev_grain[index].rad = rad_next;
-        dev_grain[index].col = col_next;
-        dev_grain[index].l_azi = l_azi_next;
-        dev_grain[index].v_rad = v_rad_next;
-        dev_grain[index].l_col = l_col_next;
+        dev_particle[idx].velocity.x = l_azi_j;
+        dev_particle[idx].velocity.y = v_rad_j;
+        dev_particle[idx].velocity.z = l_col_j;
     }
 }
