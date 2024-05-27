@@ -40,17 +40,18 @@ void rand_gaussian (real *profile, int number, real p_min, real p_max, real p_0,
 __host__
 void rand_powerlaw (real *profile, int number, real p_min, real p_max, real idx_pow)
 {
-    real tmp_min, tmp_max;
     std::uniform_real_distribution <real> random(0.0, 1.0);
 
-    tmp_min = std::pow(p_min, idx_pow + 1.0);
-    tmp_max = std::pow(p_max, idx_pow + 1.0);
-
     // check https://mathworld.wolfram.com/RandomNumber.html for derivations
-    // NOTE: this is the distribution of dN(x) ~ x^n*dx, corresponding to N(x) ~ x^(n+1)
+    // NOTE: the above website is for distribution of dN(x) ~ x^n*dx, which is N(x) ~ x^(n+1)
+    //       all (n+1) terms in the provided solution have been substituted by n here
+    
+    real tmp_min = std::pow(p_min, idx_pow);
+    real tmp_max = std::pow(p_max, idx_pow);
+
     for (int i = 0; i < number; i++)
     {
-        profile[i] = std::pow((tmp_max - tmp_min)*random(rand_generator) + tmp_min, 1.0/(idx_pow + 1.0));
+        profile[i] = std::pow((tmp_max - tmp_min)*random(rand_generator) + tmp_min, 1.0/idx_pow);
     }
 }
 
@@ -62,9 +63,13 @@ real pow_law (real x, real x_min, real x_max, real idx_pow)
     real output;
 
     if (x >= x_min && x <= x_max)
+    {
         output = std::pow(x/x_min, idx_pow); 
+    }
     else
+    {
         output = 0.0;
+    }
 
     return output;
 }

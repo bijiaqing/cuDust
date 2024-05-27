@@ -8,7 +8,7 @@ __global__
 void optdepth_init (real *dev_optdepth)
 {
     int idx = threadIdx.x + blockDim.x*blockIdx.x;
-    	
+
     if (idx >= 0 && idx < NUM_DIM)
     {
         dev_optdepth[idx] = 0.0;
@@ -19,7 +19,7 @@ __global__
 void dustdens_init (real *dev_dustdens)
 {
     int idx = threadIdx.x + blockDim.x*blockIdx.x;
-    	
+
     if (idx >= 0 && idx < NUM_DIM)
     {
         dev_dustdens[idx] = 0.0;
@@ -56,10 +56,7 @@ void optdepth_enum (real *dev_optdepth, swarm *dev_particle)
 
             int idx_cell = static_cast<int>(par_col)*NUM_COL + static_cast<int>(par_rad)*RES_AZI + static_cast<int>(par_azi);
 
-            real dustsize = dev_particle[idx].dustsize;
-            real numgrain = dev_particle[idx].numgrain;
-            
-            real weight = KAPPA_REF*SIZE_REF*RHO_DUST*numgrain*dustsize*dustsize;
+            real weight = 1.0;
 
             atomicAdd(&dev_optdepth[idx_cell                                 ], (1.0-frac_azi)*(1.0-frac_rad)*(1.0-frac_col)*weight);
             atomicAdd(&dev_optdepth[idx_cell + next_azi                      ],      frac_azi *(1.0-frac_rad)*(1.0-frac_col)*weight);
@@ -101,10 +98,7 @@ void dustdens_enum (real *dev_dustdens, swarm *dev_particle)
 
             int idx_cell = static_cast<int>(par_col)*NUM_COL + static_cast<int>(par_rad)*RES_AZI + static_cast<int>(par_azi);
 
-            real dustsize = dev_particle[idx].dustsize;
-            real numgrain = dev_particle[idx].numgrain;
-
-            real weight = RHO_DUST*numgrain*dustsize*dustsize*dustsize;
+            real weight = 1.0;
 
             atomicAdd(&dev_dustdens[idx_cell                                 ], (1.0-frac_azi)*(1.0-frac_rad)*(1.0-frac_col)*weight);
             atomicAdd(&dev_dustdens[idx_cell + next_azi                      ],      frac_azi *(1.0-frac_rad)*(1.0-frac_col)*weight);
@@ -188,7 +182,7 @@ void optdepth_calc (real *dev_optdepth)
         volume *= cos(col_in) - cos(col_in + d_col);
 
         dev_optdepth[idx] /= volume;
-        dev_optdepth[idx] *= (d_rad - 1.0)*rad_in; // prepare for radial integration
+        dev_optdepth[idx] *= (d_rad - 1.0)*rad_in; // prepared for radial integration
     }
 }
 

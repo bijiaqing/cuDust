@@ -34,13 +34,6 @@ void save_bin_file (std::ofstream &bin_file, swarm *data, int number)
 }
 
 __host__
-void save_bin_file (std::ofstream &bin_file, float *data, int number) 
-{
-    bin_file.write((char*)data, sizeof(float)*number);
-    bin_file.close();
-}
-
-__host__
 void save_bin_file (std::ofstream &bin_file, real *data, int number) 
 {
     bin_file.write((char*)data, sizeof(real)*number);

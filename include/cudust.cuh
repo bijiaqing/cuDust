@@ -20,31 +20,17 @@ __global__ void dustdens_init (real *dev_dustdens);
 __global__ void dustdens_enum (real *dev_dustdens, swarm *dev_particle);
 __global__ void dustdens_calc (real *dev_dustdens);
 
-// __global__ void histsize_init (real *dev_histsize);
-// __global__ void histsize_enum (real *dev_histsize, swarm *dev_particle);
-
 // =========================================================================================================================
 // initialization 
 
-__global__ void particle_init (swarm *dev_particle, real *dev_prof_azi, real *dev_prof_rad, real *dev_prof_col, real *dev_prof_size);
+__global__ void particle_init (swarm *dev_particle, real *dev_prof_azi, real *dev_prof_rad, real *dev_prof_col);
 __global__ void velocity_init (swarm *dev_particle, real *dev_optdepth);
-
-// =========================================================================================================================
-// collision related
-
-__global__ void rngstate_init (curandState *dev_rngstate, int seed);
-__global__ void treenode_init (swarm *dev_particle, tree *dev_treenode);
-__global__ void collrate_calc (swarm *dev_particle, swarm_tmp *dev_tmp_info, tree *dev_treenode, int  *dev_collrate, 
-    const cukd::box_t<float3> *dev_boundbox);
-__global__ void dustcoag_calc (swarm *dev_particle, swarm_tmp *dev_tmp_info, tree *dev_treenode, real *dev_timestep, 
-    const cukd::box_t<float3> *dev_boundbox, curandState *dev_rngstate);
-__global__ void dustsize_updt (swarm *dev_particle, swarm_tmp *dev_tmp_info);
 
 // =========================================================================================================================
 // integrator
 
-__global__ void ssa_substep_1 (swarm *dev_particle, real *dev_timestep);
-__global__ void ssa_substep_2 (swarm *dev_particle, real *dev_optdepth, real *dev_timestep);
+__global__ void ssa_substep_1 (swarm *dev_particle);
+__global__ void ssa_substep_2 (swarm *dev_particle, real *dev_optdepth);
 
 // =========================================================================================================================
 // interpolation
@@ -64,7 +50,6 @@ __host__ void save_variable (std::ofstream &txt_file);
 
 __host__ void open_bin_file (std::ofstream &bin_file, std::string file_name);
 __host__ void save_bin_file (std::ofstream &bin_file, swarm *data, int number);
-__host__ void save_bin_file (std::ofstream &bin_file, float *data, int number);
 __host__ void save_bin_file (std::ofstream &bin_file, real  *data, int number);
 
 __host__ void load_bin_file (std::ifstream &bin_file, std::string file_name);
