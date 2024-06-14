@@ -9,27 +9,27 @@ void particle_init (swarm *dev_particle, real *dev_prof_azi, real *dev_prof_rad,
 
     if (idx >= 0 && idx < NUM_PAR)
     {
-        real azi = dev_prof_azi[idx];
-        real rad = dev_prof_rad[idx];
-        real col = dev_prof_col[idx];
-        
-        dev_particle[idx].position.x = azi;
-        dev_particle[idx].position.y = rad;
-        dev_particle[idx].position.z = col;
+        // dev_particle[idx].position.x = dev_prof_azi[idx];
+        // dev_particle[idx].position.y = dev_prof_rad[idx];
+        // dev_particle[idx].position.z = dev_prof_col[idx];
+
+        dev_particle[idx].position.x = 0.25*M_PI;
+        dev_particle[idx].position.y = 1.0;
+        dev_particle[idx].position.z = 0.25*M_PI;
     }
 }
 
 // =========================================================================================================================
 
 __global__ 
-void velocity_init (swarm *dev_particle, real *dev_optdepth)
+void dynamics_init (swarm *dev_particle, real *dev_optdepth)
 {
     int idx = threadIdx.x + blockDim.x*blockIdx.x;
 
     if(idx >= 0 && idx < NUM_PAR)
     {
-        dev_particle[idx].velocity.x = sqrt(G*M_STAR*dev_particle[idx].position.y);
-        dev_particle[idx].velocity.y = 0.0;
-        dev_particle[idx].velocity.z = 0.0;
+        dev_particle[idx].dynamics.x = sqrt(G*M_REF*dev_particle[idx].position.y)*sin(dev_particle[idx].position.z);
+        dev_particle[idx].dynamics.y = 0.0;
+        dev_particle[idx].dynamics.z = 0.0;
     }
 }

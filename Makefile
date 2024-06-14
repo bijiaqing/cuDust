@@ -8,16 +8,13 @@ CFLAGS = -I $(IDIR)
 _DEPS = const.cuh cudust.cuh
 DEPS = $(patsubst %, $(IDIR)/%, $(_DEPS))
 
-_OBJ = collision.o initialize.o integrator.o interpolate.o main.o mesh.o outputs.o profiles.o 
+_OBJ = initialize.o integrator.o interpolate.o main.o mesh.o outputs.o profile.o 
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ))
 
 all: cudust
 
 cudust: $(OBJ)
 	$(CC) -o $@ $^
-
-$(ODIR)/collision.o: $(SDIR)/collision.cu $(DEPS)
-	$(CC) --device-c -o $@ $< $(CFLAGS)
 
 $(ODIR)/initialize.o: $(SDIR)/initialize.cu $(DEPS)
 	$(CC) --device-c -o $@ $< $(CFLAGS)
@@ -37,7 +34,7 @@ $(ODIR)/mesh.o: $(SDIR)/mesh.cu $(DEPS)
 $(ODIR)/outputs.o: $(SDIR)/outputs.cu $(DEPS)
 	$(CC) --device-c -o $@ $< $(CFLAGS)
 
-$(ODIR)/profiles.o: $(SDIR)/profiles.cu $(DEPS)
+$(ODIR)/profile.o: $(SDIR)/profile.cu $(DEPS)
 	$(CC) --device-c -o $@ $< $(CFLAGS)
 
 clean:

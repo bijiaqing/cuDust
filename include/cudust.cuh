@@ -24,13 +24,13 @@ __global__ void dustdens_calc (real *dev_dustdens);
 // initialization 
 
 __global__ void particle_init (swarm *dev_particle, real *dev_prof_azi, real *dev_prof_rad, real *dev_prof_col);
-__global__ void velocity_init (swarm *dev_particle, real *dev_optdepth);
+__global__ void dynamics_init (swarm *dev_particle, real *dev_optdepth);
 
 // =========================================================================================================================
 // integrator
 
-__global__ void ssa_substep_1 (swarm *dev_particle);
-__global__ void ssa_substep_2 (swarm *dev_particle, real *dev_optdepth);
+__global__ void ssa_substep_1 (swarm *dev_particle, real *dev_timestep);
+__global__ void ssa_substep_2 (swarm *dev_particle, real *dev_timestep, real *dev_optdepth);
 
 // =========================================================================================================================
 // interpolation
