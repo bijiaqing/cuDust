@@ -50,15 +50,15 @@ int main (int argc, char **argv)
         cudaMallocHost((void**)&profile_col, sizeof(real)*NUM_PAR);
         cudaMalloc((void**)&dev_prof_col,    sizeof(real)*NUM_PAR);
 
-        // rand_generator.seed(0); // or use rand_generator.seed(std::time(NULL));
+        rand_generator.seed(0); // or use rand_generator.seed(std::time(NULL));
 
-        // rand_uniform  (profile_azi, NUM_PAR, AZI_INIT_MIN, AZI_INIT_MAX);
-        // rand_conv_pow (profile_rad, NUM_PAR, RAD_INIT_MIN, RAD_INIT_MAX, IDX_SIGMAG - 1.0, SMOOTH_RAD, RES_RAD);
-        // rand_uniform  (profile_col, NUM_PAR, COL_INIT_MIN, COL_INIT_MAX);
+        rand_uniform  (profile_azi, NUM_PAR, AZI_INIT_MIN, AZI_INIT_MAX);
+        rand_conv_pow (profile_rad, NUM_PAR, RAD_INIT_MIN, RAD_INIT_MAX, IDX_SIGMAG - 1.0, SMOOTH_RAD, RES_RAD);
+        rand_uniform  (profile_col, NUM_PAR, COL_INIT_MIN, COL_INIT_MAX);
 
-        // cudaMemcpy(dev_prof_azi,  profile_azi,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
-        // cudaMemcpy(dev_prof_rad,  profile_rad,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
-        // cudaMemcpy(dev_prof_col,  profile_col,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_prof_azi,  profile_azi,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_prof_rad,  profile_rad,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_prof_col,  profile_col,  sizeof(real)*NUM_PAR, cudaMemcpyHostToDevice);
 
         particle_init <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_particle, dev_prof_azi, dev_prof_rad, dev_prof_col);
 
@@ -66,32 +66,32 @@ int main (int argc, char **argv)
         cudaFreeHost(profile_rad);  cudaFree(dev_prof_rad);
         cudaFreeHost(profile_col);  cudaFree(dev_prof_col);
 
-        // optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-        // optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
-        // optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-        // optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
-        // optdepth_mean <<<BLOCKNUM_AZI, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
+        optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_mean <<<BLOCKNUM_AZI, THREADS_PER_BLOCK>>> (dev_optdepth);
         
-        // dustdens_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
-        // dustdens_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_dustdens, dev_particle);
-        // dustdens_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
+        dustdens_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
+        dustdens_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_dustdens, dev_particle);
+        dustdens_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
         
         dynamics_init <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_particle, dev_optdepth);
 
         mkdir(OUTPUT_PATH.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
-        // open_txt_file(ofile, OUTPUT_PATH + "variables.txt");
-        // save_variable(ofile);
+        open_txt_file(ofile, OUTPUT_PATH + "variables.txt");
+        save_variable(ofile);
 
-        // cudaMemcpy(dustdens, dev_dustdens, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
-        // fname = OUTPUT_PATH + "dustdens_" + frame_num(resume) + ".bin";
-        // open_bin_file(ofile, fname);
-        // save_bin_file(ofile, dustdens, NUM_DIM);
+        cudaMemcpy(dustdens, dev_dustdens, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
+        fname = OUTPUT_PATH + "dustdens_" + frame_num(resume) + ".bin";
+        open_bin_file(ofile, fname);
+        save_bin_file(ofile, dustdens, NUM_DIM);
 
-        // cudaMemcpy(optdepth, dev_optdepth, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
-        // fname = OUTPUT_PATH + "optdepth_" + frame_num(resume) + ".bin";
-        // open_bin_file(ofile, fname);
-        // save_bin_file(ofile, optdepth, NUM_DIM);
+        cudaMemcpy(optdepth, dev_optdepth, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
+        fname = OUTPUT_PATH + "optdepth_" + frame_num(resume) + ".bin";
+        open_bin_file(ofile, fname);
+        save_bin_file(ofile, optdepth, NUM_DIM);
 
         cudaMemcpy(particle, dev_particle, sizeof(swarm)*NUM_PAR, cudaMemcpyDeviceToHost);
         fname = OUTPUT_PATH + "particle_" + frame_num(resume) + ".par";
@@ -129,10 +129,10 @@ int main (int argc, char **argv)
             }
             
             ssa_substep_1 <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_particle, dev_timestep);
-            // optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-            // optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
-            // optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-            // optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
+            optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+            optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
+            optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+            optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
             ssa_substep_2 <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_particle, dev_timestep, dev_optdepth);
             output_timer += *timestep;
         }
@@ -140,25 +140,25 @@ int main (int argc, char **argv)
         output_timer = 0.0;
     
         // calculate dustdens grids for each output
-        // dustdens_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
-        // dustdens_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_dustdens, dev_particle);
-        // dustdens_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
+        dustdens_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
+        dustdens_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_dustdens, dev_particle);
+        dustdens_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_dustdens);
 
-        // cudaMemcpy(dustdens, dev_dustdens, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
-        // fname = OUTPUT_PATH + "dustdens_" + frame_num(i) + ".bin";
-        // open_bin_file(ofile, fname);
-        // save_bin_file(ofile, dustdens, NUM_DIM);
+        cudaMemcpy(dustdens, dev_dustdens, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
+        fname = OUTPUT_PATH + "dustdens_" + frame_num(i) + ".bin";
+        open_bin_file(ofile, fname);
+        save_bin_file(ofile, dustdens, NUM_DIM);
 
         // calculate optical depth grids for each output
-        // optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-        // optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
-        // optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
-        // optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_init <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_enum <<<BLOCKNUM_PAR, THREADS_PER_BLOCK>>> (dev_optdepth, dev_particle);
+        optdepth_calc <<<BLOCKNUM_DIM, THREADS_PER_BLOCK>>> (dev_optdepth);
+        optdepth_rint <<<BLOCKNUM_RAD, THREADS_PER_BLOCK>>> (dev_optdepth);
 
-        // cudaMemcpy(optdepth, dev_optdepth, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
-        // fname = OUTPUT_PATH + "optdepth_" + frame_num(i) + ".bin";
-        // open_bin_file(ofile, fname);
-        // save_bin_file(ofile, optdepth, NUM_DIM);
+        cudaMemcpy(optdepth, dev_optdepth, sizeof(real)*NUM_DIM, cudaMemcpyDeviceToHost);
+        fname = OUTPUT_PATH + "optdepth_" + frame_num(i) + ".bin";
+        open_bin_file(ofile, fname);
+        save_bin_file(ofile, optdepth, NUM_DIM);
 
         if (i % OUTPUT_PAR == 0)
         {

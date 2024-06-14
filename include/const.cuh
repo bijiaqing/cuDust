@@ -10,7 +10,7 @@ using real3 = double3;
 // =========================================================================================================================
 // resolutions
 
-const int NUM_PAR = 1;
+const int NUM_PAR = 1.0e+07;
 const int RES_AZI = 1024;
 const int RES_RAD = 1024;
 const int RES_COL = 3;
@@ -32,18 +32,9 @@ const real IDX_SIGMAG = -1.5;
 // =========================================================================================================================
 // dust parameters
 
-const real ST_REF    = 1.0e+06;
-const real BETA_REF  = 0.0; // 1.0e+01;
+const real ST_REF    = 1.0e-04;
+const real BETA_REF  = 1.0e+01;
 const real KAPPA_REF = 1.0e+07*R_REF*R_REF/M_REF;  // [kappa] = [R^2]/[M], ~1cm2/g, Miyake & Nakagawa 1993
-
-const real IDX_SIZE  = -3.5;
-
-// =========================================================================================================================
-// companion parameters
-
-const real M_COMP   = 0.5*M_REF;
-const real RAD_COMP = 0.5*R_REF;
-const real SIZE_CSD = 0.1*RAD_COMP;
 
 // =========================================================================================================================
 // disk size and dust init
@@ -86,9 +77,7 @@ const int BLOCKNUM_DIM = NUM_DIM / THREADS_PER_BLOCK + 1;
 const int  OUTPUT_NUM = 100;
 const int  OUTPUT_PAR = 1;
 const real OUTPUT_INT = 0.02*M_PI;
-const real DT_MAX     = 0.001*M_PI;
-
-// const real DT_MAX     = 2.0*M_PI/static_cast<real>(RES_AZI);
+const real DT_MAX     = 2.0*M_PI/static_cast<real>(RES_AZI);
 
 const std::string OUTPUT_PATH = "outputs/";
 
@@ -98,7 +87,7 @@ const std::string OUTPUT_PATH = "outputs/";
 struct swarm
 {
     real3 position;     // x = azi, y = rad, z = col
-    real3 dynamics;     // x = specific AM in azi, y = radial velocity, z = specific AM in col
+    real3 dynamics;     // x = VERTICAL specific AM, y = radial velocity, z = specific AM in col
 };
 
 struct interp
