@@ -19,8 +19,14 @@ const int RES_COL = 3;
 // code units
 
 const real G     = 1.0;
-const real M_REF = 1.0;
+const real M     = 1.0;
 const real R_REF = 1.0;
+
+// =========================================================================================================================
+// star paramters
+
+const real Q = 0.5;
+const real D = 0.3*R_REF;
 
 // =========================================================================================================================
 // disk paramters
@@ -34,7 +40,7 @@ const real IDX_SIGMAG = -1.5;
 
 const real ST_REF    = 1.0e-04;
 const real BETA_REF  = 1.0e+01;
-const real KAPPA_REF = 1.0e+07*R_REF*R_REF/M_REF;  // [kappa] = [R^2]/[M], ~1cm2/g, Miyake & Nakagawa 1993
+const real KAPPA_REF = 1.0e+07*R_REF*R_REF/M;  // [kappa] = [R^2]/[M], ~1cm2/g, Miyake & Nakagawa 1993
 
 // =========================================================================================================================
 // disk size and dust init
@@ -47,8 +53,8 @@ const real AZI_MAX       = AZI_INIT_MAX;
 const real SMOOTH_RAD    = 0.02*R_REF;
 const real RAD_INIT_MIN  = 1.0*R_REF;
 const real RAD_INIT_MAX  = 1.5*R_REF;
-const real RAD_MIN       = RAD_INIT_MIN - 2.5*SMOOTH_RAD;
-const real RAD_MAX       = RAD_INIT_MAX + 2.5*SMOOTH_RAD;
+const real RAD_MIN       = RAD_INIT_MIN - 2.5*SMOOTH_RAD - D*Q / (1.0 + Q);
+const real RAD_MAX       = RAD_INIT_MAX + 2.5*SMOOTH_RAD + D*Q / (1.0 + Q);
 
 const real ARCTAN_3H     = 0.1488899476095;
 const real COL_INIT_MIN  = 0.5*M_PI;

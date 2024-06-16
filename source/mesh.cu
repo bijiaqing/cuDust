@@ -35,9 +35,23 @@ void optdepth_enum (real *dev_optdepth, swarm *dev_particle)
 
     if (idx >= 0 && idx < NUM_PAR)
     {
-        real par_azi = static_cast<real>(RES_AZI)*   (dev_particle[idx].position.x - AZI_MIN) /    (AZI_MAX - AZI_MIN);
-        real par_rad = static_cast<real>(RES_RAD)*log(dev_particle[idx].position.y / RAD_MIN) / log(RAD_MAX / RAD_MIN);
-        real par_col = static_cast<real>(RES_COL)*   (dev_particle[idx].position.z - COL_MIN) /    (COL_MAX - COL_MIN);
+        real azi = dev_particle[idx].position.x;
+        real rad = dev_particle[idx].position.y;
+        real col = dev_particle[idx].position.z;
+
+        real x_new = rad*sin(col)*cos(azi) + D*Q / (1.0 + Q);
+        real y_new = rad*sin(col)*sin(azi);
+        real z_new = rad*cos(col);
+        
+        real azi_new = acos(x_new / sqrt(x_new*x_new + y_new*y_new));
+        real rad_new = sqrt(x_new*x_new + y_new*y_new + z_new*z_new);
+        real col_new = acos(z_new / rad_new);
+
+        if (y_new < 0.0) azi_new = 2.0*M_PI - azi_new;
+        
+        real par_azi = static_cast<real>(RES_AZI)*   (azi_new - AZI_MIN) /    (AZI_MAX - AZI_MIN);
+        real par_rad = static_cast<real>(RES_RAD)*log(rad_new / RAD_MIN) / log(RAD_MAX / RAD_MIN);
+        real par_col = static_cast<real>(RES_COL)*   (col_new - COL_MIN) /    (COL_MAX - COL_MIN);
 
         bool inside_azi = par_azi >= 0.0 && par_azi < static_cast<real>(RES_AZI);
         bool inside_rad = par_rad >= 0.0 && par_rad < static_cast<real>(RES_RAD);
@@ -77,9 +91,23 @@ void dustdens_enum (real *dev_dustdens, swarm *dev_particle)
 
     if (idx >= 0 && idx < NUM_PAR)
     {
-        real par_azi = static_cast<real>(RES_AZI)*   (dev_particle[idx].position.x - AZI_MIN) /    (AZI_MAX - AZI_MIN);
-        real par_rad = static_cast<real>(RES_RAD)*log(dev_particle[idx].position.y / RAD_MIN) / log(RAD_MAX / RAD_MIN);
-        real par_col = static_cast<real>(RES_COL)*   (dev_particle[idx].position.z - COL_MIN) /    (COL_MAX - COL_MIN);
+        real azi = dev_particle[idx].position.x;
+        real rad = dev_particle[idx].position.y;
+        real col = dev_particle[idx].position.z;
+
+        real x_new = rad*sin(col)*cos(azi) + D*Q / (1.0 + Q);
+        real y_new = rad*sin(col)*sin(azi);
+        real z_new = rad*cos(col);
+        
+        real azi_new = acos(x_new / sqrt(x_new*x_new + y_new*y_new));
+        real rad_new = sqrt(x_new*x_new + y_new*y_new + z_new*z_new);
+        real col_new = acos(z_new / rad_new);
+
+        if (y_new < 0.0) azi_new = 2.0*M_PI - azi_new;
+        
+        real par_azi = static_cast<real>(RES_AZI)*   (azi_new - AZI_MIN) /    (AZI_MAX - AZI_MIN);
+        real par_rad = static_cast<real>(RES_RAD)*log(rad_new / RAD_MIN) / log(RAD_MAX / RAD_MIN);
+        real par_col = static_cast<real>(RES_COL)*   (col_new - COL_MIN) /    (COL_MAX - COL_MIN);
 
         bool inside_azi = par_azi >= 0.0 && par_azi < static_cast<real>(RES_AZI);
         bool inside_rad = par_rad >= 0.0 && par_rad < static_cast<real>(RES_RAD);
@@ -115,9 +143,23 @@ void dustdens_enum (real *dev_dustdens, swarm *dev_particle)
 // =========================================================================================================================
 
 __device__
-real get_optdepth (real *dev_optdepth, real par_azi, real par_rad, real par_col)
+real get_optdepth (real *dev_optdepth, real azi, real rad, real col)
 {
     real optdepth = 0.0;
+
+    real x_new = rad*sin(col)*cos(azi) + D*Q / (1.0 + Q);
+    real y_new = rad*sin(col)*sin(azi);
+    real z_new = rad*cos(col);
+    
+    real azi_new = acos(x_new / sqrt(x_new*x_new + y_new*y_new));
+    real rad_new = sqrt(x_new*x_new + y_new*y_new + z_new*z_new);
+    real col_new = acos(z_new / rad_new);
+
+    if (y_new < 0.0) azi_new = 2.0*M_PI - azi_new;
+    
+    real par_azi = static_cast<real>(RES_AZI)*   (azi_new - AZI_MIN) /    (AZI_MAX - AZI_MIN);
+    real par_rad = static_cast<real>(RES_RAD)*log(rad_new / RAD_MIN) / log(RAD_MAX / RAD_MIN);
+    real par_col = static_cast<real>(RES_COL)*   (col_new - COL_MIN) /    (COL_MAX - COL_MIN);
 
     bool inside_azi = par_azi >= 0.0 && par_azi < static_cast<real>(RES_AZI);
     bool inside_rad = par_rad >= 0.0 && par_rad < static_cast<real>(RES_RAD);

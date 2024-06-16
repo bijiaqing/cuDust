@@ -24,7 +24,7 @@ void dynamics_init (swarm *dev_particle, real *dev_optdepth)
 
     if(idx >= 0 && idx < NUM_PAR)
     {
-        dev_particle[idx].dynamics.x = sqrt(G*M_REF*dev_particle[idx].position.y)*sin(dev_particle[idx].position.z);
+        dev_particle[idx].dynamics.x = sqrt(G*M*dev_particle[idx].position.y)*sin(dev_particle[idx].position.z);
         dev_particle[idx].dynamics.y = 0.0;
         dev_particle[idx].dynamics.z = 0.0;
     }
